@@ -14,6 +14,7 @@ scripts/
   freq_compare.py     3. Compare babies' word order with adult word frequency
   make_page_data.py   4. Build the data for the first exploration page ("What Babies Say First")
   story_data.py       5. Build the per-language data embedded in the game (story_data.json)
+  log_odds.py         6. Weighted log odds: each language's most and least typical early words (log_odds.json)
 data/
   unilemma_props.csv.gz   share of children saying/understanding each word, by language and month
   aoa.csv                 age-of-acquisition estimates, one row per language x word x measure
@@ -24,6 +25,7 @@ data/
   aoa_vs_frequency.csv    babies' ages joined to adult frequency ranks (9 languages)
   page_data.json          data for the first exploration page
   story_data.json         data embedded in the game (36 languages)
+  log_odds.json           top and bottom 10 words per language by weighted log odds, first four years
 ```
 
 ## Source data
@@ -52,6 +54,7 @@ python scripts/explore.py        $OUT $WB/networks
 python scripts/freq_compare.py   $OUT $FW
 python scripts/make_page_data.py $OUT
 python scripts/story_data.py     $OUT $FW $OUT/story_data.json
+python scripts/log_odds.py       $OUT/unilemma_props.csv.gz $OUT/story_data.json $OUT/log_odds.json
 ```
 
 ## Methods in brief
@@ -67,3 +70,4 @@ python scripts/story_data.py     $OUT $FW $OUT/story_data.json
 ## story_data.json format
 
 `data[language]` is a list of words sorted by age, each `[meaning, word, class, age_says, age_understands, cross_language_median, adult_frequency_rank]`, where `word` is either a string or `[short label, all spellings]`, and `class` is 0 nouns, 1 predicates, 2 function words, 3 sounds & routines. Missing values are `null`. `gaps[language]` is the median age of predicates minus nouns, in months.
+- **Most and least typical words (weighted log odds).** `log_odds.py` follows Monroe, Colaresi & Quinn (2008, *Political Analysis*), with an informative Dirichlet prior. For each language, the share of children saying each meaning is averaged over every month measured up to 48 months (most checklists stop at 30 to 36) and scaled to a common total, so every language weighs the same. A word counts for a language only if its checklist tracked it to at least 24 months, and only meanings on at least 20 of the 36 checklists are compared. The comparison group is the other 35 languages; the prior is one average language. The page shows the 10 highest and 10 lowest z-scores per language. The English translations in `log_odds.json` come from the checklists' own item glosses, a later version of `story_data.py` than the one in this folder; with this folder's `story_data.json` the script falls back to the cross-language meaning labels.
