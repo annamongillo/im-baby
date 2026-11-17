@@ -38,6 +38,13 @@ data/
 
    They use `slices/unilemmas/` (one CSV per cross-language meaning), `slices/admins/` (one CSV per checklist form, used to identify forms that measure understanding) and `slices/networks/` (word categories).
 
+   `story_data.py` also reads the checklist definition files from the main Wordbank repository, which carry each item's English gloss written by the checklist's adaptation team:
+
+   ```
+   git clone --depth 1 --filter=blob:none --sparse https://github.com/langcog/wordbank
+   cd wordbank && git sparse-checkout set raw_data
+   ```
+
 2. **FrequencyWords** (2018 OpenSubtitles word counts): https://github.com/hermitdave/FrequencyWords. Only the `content/2018/<code>/<code>_50k.txt` files are needed, e.g. `en`, `es`, `fr`, `de`, `it`, `zh_cn`, `zh_tw`, `ko`, `pt`, `ru`, `he`, `tr`, `pl`, `nl`, `sv`, `da`, `no`, `cs`, `hr`, `et`, `fi`, `hu`, `lv`, `sk`, `ca`, `el`, `fa`, `ar`.
 
 ## How to reproduce
@@ -53,7 +60,7 @@ python scripts/build_aoa.py      $WB/unilemmas $OUT $WB/admins
 python scripts/explore.py        $OUT $WB/networks
 python scripts/freq_compare.py   $OUT $FW
 python scripts/make_page_data.py $OUT
-python scripts/story_data.py     $OUT $FW $OUT/story_data.json
+python scripts/story_data.py     $OUT $FW $OUT/story_data.json ../wordbank/raw_data
 python scripts/log_odds.py       $OUT/unilemma_props.csv.gz $OUT/story_data.json $OUT/log_odds.json
 ```
 
@@ -62,12 +69,13 @@ python scripts/log_odds.py       $OUT/unilemma_props.csv.gz $OUT/story_data.json
 - **Age of acquisition (AoA).** For each language, meaning and measure (says / understands), a weighted logistic regression of the share of children with the word against age in months; AoA is the age where the curve crosses 50%. Estimates more than 3 months before or 6 months after the observed ages are flagged `extrapolated` and dropped from summaries.
 - **Understanding.** Wordbank pools every child who had a word on their form, but only the younger "Words & Gestures"-type forms ask about understanding. `build_aoa.py` keeps "understands" only at ages where at least 95% of children were on a form that measures it.
 - **Exclusions.** Sign languages, the Malaysian datasets and Tsonga are left out of pooled summaries; their samples skew older or cover few words. The game uses the 36 languages with at least 300 estimated words.
-- **Word classes.** Wordbank checklist sections are grouped into nouns, predicates (verbs and adjectives), function words, and sounds & routines.
+- **Word classes.** Wordbank checklist sections are grouped into nouns, verbs (the CDI's action words), adjectives (its descriptive words), function words, and sounds & routines.
 - **Frequency.** A checklist word is matched to its first clean spelling in the language's 50,000 most common subtitle words. Multiword items and sound effects with several spellings are skipped.
-- **Clean labels.** `story_data.py` strips form codes (e.g. "A sounds - 8") and numbering suffixes (e.g. "peix2") from display words.
-- **Calculated in the game itself.** Some figures in the game's data section are computed in the browser from `story_data.json`: cross-language medians over the 36 game languages, Spearman correlations, the understanding gap (meanings in 10+ languages), and the pace-adjusted "unusually early/late" words. That code is in the game's `index.html`.
+- **Clean labels.** `story_data.py` strips form codes (e.g. "A sounds - 8") and numbering suffixes (e.g. "peix2") from display words, and turns underscore-joined items into phrases ("buenas_noches" → "buenas noches"), reflexives ("comer_se" → "comer(se)") or the first of several alternatives.
+- **English translations.** Each word's English comes from its checklist's own item gloss (the `raw_data` instrument files), tidied and falling back to the cross-language meaning label. About 145 nouns were corrected by hand so English number matches the original (ojos → "eyes", pie → "foot"); this is not a full dictionary audit. The Polish and Faroese checklists have no glosses, so they use the meaning labels, number-corrected the same way.
+- **Calculated in the game itself.** Some figures in the game's data section are computed in the browser from `story_data.json`: cross-language medians over the 36 game languages, months after nouns for verbs, adjectives and function words, the understanding gap (meanings in 10+ languages), and the pace-adjusted "unusually early/late" words. That code is in the game's `index.html`.
 
 ## story_data.json format
 
-`data[language]` is a list of words sorted by age, each `[meaning, word, class, age_says, age_understands, cross_language_median, adult_frequency_rank]`, where `word` is either a string or `[short label, all spellings]`, and `class` is 0 nouns, 1 predicates, 2 function words, 3 sounds & routines. Missing values are `null`. `gaps[language]` is the median age of predicates minus nouns, in months.
-- **Most and least typical words (weighted log odds).** `log_odds.py` follows Monroe, Colaresi & Quinn (2008, *Political Analysis*), with an informative Dirichlet prior. For each language, the share of children saying each meaning is averaged over every month measured up to 48 months (most checklists stop at 30 to 36) and scaled to a common total, so every language weighs the same. A word counts for a language only if its checklist tracked it to at least 24 months, and only meanings on at least 20 of the 36 checklists are compared. The comparison group is the other 35 languages; the prior is one average language. The page shows the 10 highest and 10 lowest z-scores per language. The English translations in `log_odds.json` come from the checklists' own item glosses, a later version of `story_data.py` than the one in this folder; with this folder's `story_data.json` the script falls back to the cross-language meaning labels.
+`data[language]` is a list of words sorted by age, each `[meaning, word, class, age_says, age_understands, cross_language_median, adult_frequency_rank, english]`, where `word` is either a string or `[short label, all spellings]`, `class` is 0 nouns, 1 verbs, 2 function words, 3 sounds & routines, 4 adjectives, and `english` is the checklist's translation (or `null`). Missing values are `null`. `gaps[language]` is the median age of verbs minus nouns and `gapsA[language]` of adjectives minus nouns, in months.
+- **Most and least typical words (weighted log odds).** `log_odds.py` follows Monroe, Colaresi & Quinn (2008, *Political Analysis*), with an informative Dirichlet prior. For each language, the share of children saying each meaning is averaged over every month measured up to 48 months (most checklists stop at 30 to 36) and scaled to a common total, so every language weighs the same. A word counts for a language only if its checklist tracked it to at least 24 months, and only meanings on at least 20 of the 36 checklists are compared. The comparison group is the other 35 languages; the prior is one average language. The page shows the 10 highest and 10 lowest z-scores per language. The English translations in `log_odds.json` come from the checklists' own item glosses in `story_data.json`.
